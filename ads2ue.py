@@ -17,11 +17,15 @@ def mkadsurl(name,yearstart=2013, yearend=2014, numret=2000):
     n = name.strip().split(",")
     lname = n[0]
     fi = n[1].split('.')[0] + '.'
-    mi = n[1].split('.')[1]
-    if len(mi)>0: # middle initial given
+    try:
+        mi = n[1].split('.')[1]
+    except IndexError:
+        pass
+    try:
         author = lname + "%2C" + "+" + fi.strip() + "+" + mi.strip()
-    else: # no middle initial
+    except: # no middle initial
         author = lname + "%2C" + "+" + fi.strip()
+    """
     adsurl = "http://adsabs.harvard.edu/cgi-bin/nph-abs_connect?db_key=AST&db_key=PRE&" \
              "qform=AST&arxiv_sel=astro-ph&arxiv_sel=cond-mat&arxiv_sel=cs&arxiv_sel=gr-qc&" \
              "arxiv_sel=hep-ex&arxiv_sel=hep-lat&arxiv_sel=hep-ph&arxiv_sel=" \
@@ -42,6 +46,23 @@ def mkadsurl(name,yearstart=2013, yearend=2014, numret=2000):
              "min_score=&sort=SCORE&data_type=SHORT&aut_syn=YES&ttl_syn=YES&txt_syn=YES&aut_wt=1.0&" \
              "obj_wt=1.0&ttl_wt=0.3&txt_wt=3.0&aut_wgt=YES&obj_wgt=YES&ttl_wgt=YES&txt_wgt=YES&ttl_sco=YES&" \
              "txt_sco=YES&version=1"
+    """
+    adsurl = "http://adsabs.harvard.edu/cgi-bin/nph-abs_connect?db_key=AST&db_key=PRE" \
+             "&qform=AST&arxiv_sel=astro-ph&arxiv_sel=cond-mat&arxiv_sel=cs&arxiv_sel=gr-qc&arxiv_sel=hep-ex&"\
+             "arxiv_sel=hep-lat&arxiv_sel=hep-ph&arxiv_sel=hep-th&arxiv_sel=math&arxiv_sel=math-ph&" \
+             "arxiv_sel=nlin&arxiv_sel=nucl-ex&arxiv_sel=nucl-th&arxiv_sel=physics&"\
+             "arxiv_sel=quant-ph&arxiv_sel=q-bio&sim_query=YES&ned_query=YES&adsobj_query=YES&aut_logic=OR&"\
+             "obj_logic=OR&" \
+             "author="+author.strip()+"&" \
+             "start_mon=&" \
+             "start_year="+str(yearstart).strip()+"&" \
+             "end_mon=&" \
+             "end_year="+str(yearend).strip()+"&" \
+             "ttl_logic=OR&title=&txt_logic=OR&text=&nr_to_return=200&start_nr=1&jou_pick=NO&ref_stems=&" \
+             "data_and=ALL&group_and=ALL&start_entry_day=&start_entry_mon=&start_entry_year=&" \
+             "end_entry_day=&end_entry_mon=&end_entry_year=&min_score=&sort=SCORE&data_type=SHORT&aut_req=YES&" \
+             "ttl_req=YES&aut_syn=YES&ttl_syn=YES&txt_syn=YES&aut_wt=1.0&obj_wt=1.0&ttl_wt=1.0&txt_wt=3.0&" \
+             "aut_wgt=YES&obj_wgt=YES&ttl_wgt=YES&txt_wgt=YES&ttl_sco=YES&txt_sco=YES&version=1"
     return adsurl
 
 def get_bibcodes(adsurl):
@@ -75,7 +96,7 @@ def get_bibcodes(adsurl):
         bibcode.append(b+"&link_type=ABSTRACT")
     return bibcode
 
-def parse_bibcode(name,bibcode,maxauthors=8):
+def parse_bibcode(bibcode,maxauthors=10):
     """
     for an author name and a given bibcode, return the title of the paper from ads along with
     a dictionary giving co-authors and their institutes of the form {'Corcoran':'USRA', "GULL":'NASA/GSFC'} etc
@@ -109,8 +130,11 @@ def parse_bibcode(name,bibcode,maxauthors=8):
         if "Affiliation:" in str(row):
             affil=str(row.getText())
     title = title.split("Title:")[1] # get rid of Title: tag
-    authors = auth.split('Authors:')[1] # get rid of Authors: tag
-    authors = authors.split(";") # create list of authors
+    try:
+        authors = auth.split('Authors:')[1] # get rid of Authors: tag
+        authors = authors.split(";") # create list of authors
+    except:
+        authors="Problem with Authors"
     if len(authors)>maxauthors:
         authors = authors[0:maxauthors]
     if affil:
@@ -140,7 +164,10 @@ def parse_bibcode(name,bibcode,maxauthors=8):
             country.append(afa[1])
         except IndexError:
             country.append('')
-        affil = af[1]
+        try:
+            affil = af[1]
+        except IndexError:
+            pass
         ii=i
     if afsep[ii+1] in affil:
         aff=affil.split(afsep[i+1])[0]
@@ -166,14 +193,12 @@ def ads2uename(adsname):
     @return:
     """
     lname=adsname.split(",")[0].capitalize()
-    initials = adsname.split(",")[1].strip().upper()
+    try:
+        initials = adsname.split(",")[1].strip().upper()
+    except IndexError:
+        initials=' '
     uename = initials + ' ' + lname
     return uename
-
-
-
-
-
 
 def ads2ue(name, yearstart=2013, yearend=2014):
     """
@@ -183,8 +208,9 @@ def ads2ue(name, yearstart=2013, yearend=2014):
     name should be a string of the form corcoran, m. f.
     Returns title, authors, affils for given scientist name for the year range
     @rtype : basestring
-    @param adsfile:
-    @param usraname:
+    @param name: name in ADS format (Lastname, First initial, middle initial)
+    @param yearstart: beginning year for the ADS query
+    @param yearend: end year for the ADS query
     @return:
     """
     title=''
@@ -192,14 +218,27 @@ def ads2ue(name, yearstart=2013, yearend=2014):
     affils=''
     adsurl = mkadsurl(name,yearstart=yearstart,yearend=yearend)
     bibcodes = get_bibcodes(adsurl)
-    print "%15s  %15s  %s40 %4s %4s %s" % ("USRA Lead","Contact","Organization","Start","End","Topic")
+    print "%15s  %15s  %s %4s %4s %s" % ("USRA Lead","Contact","Organization","Start","End","Topic")
+    maxauthors=20
     for b in bibcodes:
         print "\nFound %s" % b
-        title, authors, affils, country = parse_bibcode(name,b)
-        for i in range(len(authors)):
-            print "%15s | %15s | %40s | %10s | %4i | %4i | %s" % (ads2uename(name), ads2uename(authors[i].strip()),affils[i].strip(),
-                                                        country[i].strip(), yearstart, yearend, title.strip())
-            #print "Author:%s /Affiliation: %s" % (authors[i], affils[i])
+        title, authors, affils, country = parse_bibcode(b, maxauthors=maxauthors)
+        lname=name.split(',')[0].strip() # get last name of USRA scientist
+        try:
+            lname_index = [i for i, s in enumerate(authors) if lname.lower() in s.lower()][0]
+            if (('Goddard'.lower() or 'GSFC'.lower()) or ('USRA'.lower() or 'Universities Space Research Association'.lower())) in affils[lname_index ].lower():
+                for i in range(len(authors)):
+                    print "%15s | %15s | %40s | %10s | %4i | %4i | %s" % (ads2uename(name), ads2uename(authors[i].strip()),affils[i].strip(),
+                                                                country[i].strip(), yearstart, yearend, title.strip())
+            else: # non-relevant bibcode since name is not associated with USRA or GSFC
+                title=''
+                authors=''
+                affils=''
+        except IndexError:
+            print ('{0} is not in first {1} authors').format(name, maxauthors)
+            title = ''
+            authors = ''
+            affils = ''
     return title, authors, affils
 
 
@@ -228,7 +267,7 @@ if __name__=="__main__":
             ads2uename(name), 'Dr. '+ads2uename(authors[i].strip()).strip(), affils[i].strip(),
             country[i].strip(), yearstart, yearend, title.strip())
     """
-    title, authors, affils = ads2ue('Krimm, H.')
+    title, authors, affils = ads2ue('Link, J.',yearstart=2014, yearend=2015)
 
 
 
