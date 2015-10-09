@@ -1,6 +1,36 @@
 from BeautifulSoup import BeautifulSoup
 import urllib2
 
+import re, htmlentitydefs
+import unicodedata
+
+
+##
+# Removes HTML or XML character references and entities from a text string.
+#
+# @param text The HTML (or XML) source text.
+# @return The plain text, as a Unicode string, if necessary.
+
+def unescape(text):
+    def fixup(m):
+        text = m.group(0)
+        if text[:2] == "&#":
+            # character reference
+            try:
+                if text[:3] == "&#x":
+                    return unichr(int(text[3:-1], 16))
+                else:
+                    return unichr(int(text[2:-1]))
+            except ValueError:
+                pass
+        else:
+            # named entity
+            try:
+                text = unichr(htmlentitydefs.name2codepoint[text[1:-1]])
+            except KeyError:
+                pass
+        return text # leave as is
+    return re.sub("&#?\w+;", fixup, text)
 
 def mkadsurl(name,yearstart=2013, yearend=2014, numret=2000):
     """
@@ -96,7 +126,7 @@ def get_bibcodes(adsurl):
         bibcode.append(b+"&link_type=ABSTRACT")
     return bibcode
 
-def parse_bibcode(bibcode,maxauthors=10):
+def parse_bibcode(name,bibcode,maxauthors=10):
     """
     for an author name and a given bibcode, return the title of the paper from ads along with
     a dictionary giving co-authors and their institutes of the form {'Corcoran':'USRA', "GULL":'NASA/GSFC'} etc
@@ -108,6 +138,8 @@ def parse_bibcode(bibcode,maxauthors=10):
     @return:
     """
     #print "Parsing Bibcodes..."
+    lname = name.split(',')[0].strip().lower()
+    fi = name.split(',')[1].strip().lower()[0]
     try:
         website = urllib2.urlopen(bibcode)
     except urllib2.HTTPError, e:
@@ -124,17 +156,30 @@ def parse_bibcode(bibcode,maxauthors=10):
     affiliation = list()
     for row in rows:
         if "Title:" in str(row):
-            title = str(row.getText())
+            title = row.getText()
+            title=unicodedata.normalize('NFKD', unescape(title)).encode('ascii','ignore') # converts html special characters
         if "Authors:" in str(row):
-            auth = str(row.getText()).replace("&#160;"," ").replace("&#233;", "e").replace("&#252;","ue")
+            #auth = str(row.getText()).replace("&#160;"," ").replace("&#233;", "e").replace("&#252;","ue").replace("&#237;","i").replace("&#225;","a")
+            auth = row.getText()
+            auth=unicodedata.normalize('NFKD', unescape(auth)).encode('ascii','ignore') # converts html special characters
         if "Affiliation:" in str(row):
-            affil=str(row.getText())
+            #affil=str(row.getText()).replace("&#160;"," ").replace("&#233;", "e").replace("&#252;","ue").replace("&#237;","i").replace("&#225;","a")
+            affil = row.getText()
+            affil = unicodedata.normalize('NFKD', unescape(affil)).encode('ascii', 'ignore') # converts html special
     title = title.split("Title:")[1] # get rid of Title: tag
     try:
         authors = auth.split('Authors:')[1] # get rid of Authors: tag
         authors = authors.split(";") # create list of authors
+        i = -1
+        for a in authors: # find index of name in list
+            i += 1
+            if ',' in a:
+                authlname = a.split(',')[0].strip().lower()
+                authfi = a.split(',')[1].strip().lower()[0]
+                if (authlname == lname and authfi == fi):
+                    selfnameindex=i
     except:
-        authors="Problem with Authors"
+        authors="Problem with parsing Authors"
     if len(authors)>maxauthors:
         authors = authors[0:maxauthors]
     if affil:
@@ -182,6 +227,9 @@ def parse_bibcode(bibcode,maxauthors=10):
     except:
         print "Country not found in affiliation "+afa[0]
         country.append(' ')
+    # remove self from authorlist
+    del authors[selfnameindex]
+    del affiliation[selfnameindex]
     return title, authors, affiliation, country
 
 def ads2uename(adsname):
@@ -222,7 +270,7 @@ def ads2ue(name, yearstart=2013, yearend=2014):
     maxauthors=20
     for b in bibcodes:
         print "\nFound %s" % b
-        title, authors, affils, country = parse_bibcode(b, maxauthors=maxauthors)
+        title, authors, affils, country = parse_bibcode(name, b, maxauthors=maxauthors)
         lname=name.split(',')[0].strip() # get last name of USRA scientist
         try:
             lname_index = [i for i, s in enumerate(authors) if lname.lower() in s.lower()][0]
@@ -267,7 +315,7 @@ if __name__=="__main__":
             ads2uename(name), 'Dr. '+ads2uename(authors[i].strip()).strip(), affils[i].strip(),
             country[i].strip(), yearstart, yearend, title.strip())
     """
-    title, authors, affils = ads2ue('Link, J.',yearstart=2014, yearend=2015)
+    title, authors, affils = ads2ue('Corcoran, M.',yearstart=2014, yearend=2015)
 
 
 
