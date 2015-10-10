@@ -170,14 +170,6 @@ def parse_bibcode(name,bibcode,maxauthors=10):
     try:
         authors = auth.split('Authors:')[1] # get rid of Authors: tag
         authors = authors.split(";") # create list of authors
-        i = -1
-        for a in authors: # find index of name in list
-            i += 1
-            if ',' in a:
-                authlname = a.split(',')[0].strip().lower()
-                authfi = a.split(',')[1].strip().lower()[0]
-                if (authlname == lname and authfi == fi):
-                    selfnameindex=i
     except:
         authors="Problem with parsing Authors"
     if len(authors)>maxauthors:
@@ -228,8 +220,6 @@ def parse_bibcode(name,bibcode,maxauthors=10):
         print "Country not found in affiliation "+afa[0]
         country.append(' ')
     # remove self from authorlist
-    del authors[selfnameindex]
-    del affiliation[selfnameindex]
     return title, authors, affiliation, country
 
 def ads2uename(adsname):
@@ -275,8 +265,11 @@ def ads2ue(name, yearstart=2013, yearend=2014):
         try:
             lname_index = [i for i, s in enumerate(authors) if lname.lower() in s.lower()][0]
             if (('Goddard'.lower() or 'GSFC'.lower()) or ('USRA'.lower() or 'Universities Space Research Association'.lower())) in affils[lname_index ].lower():
+                del authors[lname_index] # remove USRA scientist from author list
+                del affils[lname_index] # remove scientist from affil list
                 for i in range(len(authors)):
-                    print "%15s | %15s | %40s | %10s | %4i | %4i | %s" % (ads2uename(name), ads2uename(authors[i].strip()),affils[i].strip(),
+                    print "%15s | %15s | %40s | %10s | %4i | %4i | %s" % \
+                          (ads2uename(name), ads2uename(authors[i].strip()),affils[i].strip(),
                                                                 country[i].strip(), yearstart, yearend, title.strip())
             else: # non-relevant bibcode since name is not associated with USRA or GSFC
                 title=''
