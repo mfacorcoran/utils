@@ -4,6 +4,7 @@ def pdf2ocr(pdffile):
     see https://pythontips.com/2016/02/25/ocr-on-pdf-files-using-python/
     :param pdffile: pdffile to be OCR'd
     :return:
+
     """
     from wand.image import Image
     from PIL import Image as PI
