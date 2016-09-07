@@ -6,30 +6,36 @@ def get_simbad_mag(star_id, band='V', simsite='simbad.cfa.harvard.edu', quiet=Tr
     @param: simsite = simbad site to use (Default = simbad.cfa.harvard.edu,
     or use simbad.u-strasbg.fr)
     @param quiet = if False, prints out a re-assuring message
-    :return
+    :return flux of star in specified band
     """
     import requests
     from bs4 import BeautifulSoup
     import re
     simurl = 'http://'+simsite+'/simbad/sim-id?Ident='+str(star_id)+'&NbIdent=1&Radius=2&Radius.unit=arcmin&submit=submit+id'
+    if not quiet:
+        print "Simbad URL is "+simurl
     starsim= requests.get(simurl)
     starsoup = BeautifulSoup(starsim.text,'lxml')
     flux = float('nan')
     try:
         fluxtab=starsoup.find_all('table')[4] # the fourth table on the page has the fluxes in various bands
-    except IndexError:
+        #if not quiet:
+        #    print fluxtab.prettify()
+    except IndexError, ermsg:
+        print ermsg
         print "Could not find information for {0}".format(star_id)
         return
     for t in fluxtab.find_all('tt'): # rather tortured method to find the flux but it works in 1 case at least
         if band.strip() in t.text:
-            a= t.text.split(' ')
-            for b in a:
-                if len(b.strip()) > 0:
-                    if re.match('^\d\.\d',b.strip()): # this matches a digit followed by a '.' then another digit
-                        #print b.replace(" ","")+' match'
-                        flux = float(b.replace(" ",""))
+            # expr is a regular expression
+            # of 0 or 1  minus sign followed one or more digits
+            # followed by a "." followed by one or more digits followed by a space
+            #
+            expr = r'-?[0-9]+\.[0-9]+\s'
+            m = re.search(expr,t.text)
+            flux = float(m.group())
     if not quiet:
-        print "Mag of {0} is {1}".format(star_id, get_simbad_mag(star_id))
+        print "Mag of {0} is {1}".format(star_id, flux)
     return flux
 
 def get_simbad_pos(star_id, coordsys='ICRS', simsite='simbad.cfa.harvard.edu', quiet=True):
@@ -41,7 +47,7 @@ def get_simbad_pos(star_id, coordsys='ICRS', simsite='simbad.cfa.harvard.edu', q
     @param: simsite = simbad site to use (Default = simbad.cfa.harvard.edu,
     or use simbad.u-strasbg.fr)
     @param quiet = if False, prints out a re-assuring message
-    :return
+    :return Celestial position of star
     """
     import requests
     from bs4 import BeautifulSoup
@@ -80,6 +86,7 @@ def get_simbad_pos(star_id, coordsys='ICRS', simsite='simbad.cfa.harvard.edu', q
     return starpos
 
 if __name__ == "__main__":
-    starid ="HD 193793"
+    starid ="hd123456"
     #starid = 'nose'
-    starpos = get_simbad_pos(starid, quiet=False)
+    starmag = get_simbad_mag(starid, quiet=False, simsite='simbad.u-strasbg.fr')
+    print "Mag is {0}".format(starmag)
