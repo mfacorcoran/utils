@@ -43,19 +43,14 @@ def write_xcm(xcmfile, spectrum, model=None):
     @return:
     """
     xcm=['data '+spectrum.fileName]
-    xcm.append('back '+spectrum.background)
+    xcm.append('back '+spectrum.background.fileName)
     xcm.append('resp '+spectrum.response.rmf)
     xcm.append('arf '+spectrum.response.arf)
     xcm.append('ignore '+spectrum.ignoredString())
     if model:
-        xcm.append('model ' + model.expression)
-        for i in np.arange(model.nParameters) + 1:
-            p = model(i).values
-            parvals = str(p[0])
-            for k in np.arange(len(p) - 1) + 1:
-                parvals = parvals + ', ' + str(p[k])
-            xcm.append(parvals)
-        xcm.append('statistic ' + xspec.Fit.statMethod)
+        mo_xcm_list = write_xcm_model(xcmfile+'_mo.xcm',model)
+        for m in mo_xcm_list:
+            xcm.append(m)
     if os.path.isfile(xcmfile):
         print "%s exists" % xcmfile
         ans = raw_input('Overwrite [y/n]? ')
@@ -68,6 +63,42 @@ def write_xcm(xcmfile, spectrum, model=None):
         f.write(i + "\n")
     f.close()
     return
+
+def write_xcm_model(savefile, model, pyxspec = False):
+    """
+    The writes a model instance from pyxspe as an xspec 12 model command file
+    or as a pyxspec- formatted command (need to develop a reader for
+    pyxspec-formatted model file!)
+    :param model: pyxspec model instance
+    :param savefile: Name of xcm file to write to
+    :param pyxspec: if False, saves to old-style xspec format
+    :return:
+    """
+    with open(savefile, mode='wt') as mofile:
+        mo_xcm_list=["model {0}".format(model.expression)]
+        mofile.write("model {0}".format(model.expression))
+        mofile.write("\n")
+        if pyxspec:
+            for c in model.componentNames:
+                #print "component = {0}".format(c)
+                for p in model.__getattribute__(c).parameterNames:
+                    #print "Values of Parameter {0}".format(p)
+                    val= model.__getattribute__(c).__getattribute__(p).values
+                    mofile.write("model.{0}.{1}.values = {2}".format(c,p,val))
+        else:
+            for c in model.componentNames:
+                #print "component = {0}".format(c)
+                for p in model.__getattribute__(c).parameterNames:
+                    #print "Values of Parameter {0}".format(p)
+                    val= model.__getattribute__(c).__getattribute__(p).values
+                    v = [str(x) for x in val]
+                    mofile.write(','.join(v))
+                    mo_xcm_list.append(','.join(v))
+                    mofile.write("\n")
+        mofile.close()
+    return mo_xcm_list
+
+
 
 
 if __name__== "__main__":
