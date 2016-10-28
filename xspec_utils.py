@@ -43,8 +43,11 @@ def write_xcm(xcmfile, spectrum, model=None):
     @return:
     """
     xcm=['data '+spectrum.fileName]
-    xcm.append('back '+spectrum.background.fileName)
-    xcm.append('resp '+spectrum.response.rmf)
+    try:
+        xcm.append('back ' + spectrum.background.fileName)
+    except:
+        pass
+    xcm.append('resp ' + spectrum.response.rmf)
     xcm.append('arf '+spectrum.response.arf)
     xcm.append('ignore '+spectrum.ignoredString())
     if model:
