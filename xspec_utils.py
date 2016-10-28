@@ -48,7 +48,10 @@ def write_xcm(xcmfile, spectrum, model=None):
     except:
         pass
     xcm.append('resp ' + spectrum.response.rmf)
-    xcm.append('arf '+spectrum.response.arf)
+    try:
+        xcm.append('arf '+spectrum.response.arf)
+    except:
+        pass
     xcm.append('ignore '+spectrum.ignoredString())
     if model:
         mo_xcm_list = write_xcm_model(xcmfile+'_mo.xcm',model)
